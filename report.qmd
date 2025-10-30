@@ -8,27 +8,113 @@ format: typst
 ## **Part 0: libraries**
 
 ```{r}
-
+library(tidyverse)
+library(stringr)
+library(readr)
+library(sf)
+library(rnaturalearth)   
 ```
 
 ## **Part 1:** **Defining Research Question**
 
-Chosen Question:
+Chosen Question: 
+Do states with more EV registrations also have higher total energy prices in 2023?
+
+
 
 ## **Part 2: Data Preparation and Cleaning**
 
 ```{r}
 
+ev_lines <- read_csv("ev-registrations-by-state-2023.csv")
+
+ev_tbl <- tibble(raw = ev_lines) |>
+  filter(str_detect(raw, ",")) |>
+  mutate(
+    state = str_trim(str_replace(raw, ",.*$", "")),
+    rest  = str_trim(str_replace(raw, "^[^,]*,", "")),
+    ev_count = str_extract(rest, "[0-9][0-9,]*"),
+    ev_count = as.integer(str_replace_all(ev_count, ",", ""))
+  ) |>
+  select(state, ev_count) |>
+  filter(!is.na(ev_count),
+         !state %in% c("US","United States","United States Total"))
+
+
+pr_lines <- readr::read_lines("av-energy-price-2021-2023.csv")
+
+pr_tbl <- tibble(raw = pr_lines) |>
+  filter(str_detect(raw, "^[A-Z]{2},")) |>
+  mutate(
+    postal = str_extract(raw, "^[A-Z]{2}"),
+    last_field = str_trim(str_extract(raw, "[^,]+$")),
+    price_2023 = as.numeric(str_extract(last_field, "\\d+\\.?\\d*"))
+  ) |>
+  filter(!is.na(price_2023)) |>
+  select(postal, price_2023)
+
+
+us_states <- rnaturalearth::ne_states(
+  country = "United States of America",
+  returnclass = "sf"
+) |>
+  select(name = name, postal = postal, geometry) |>
+  filter(!name %in% c(
+    "Alaska","Hawaii","Puerto Rico","Guam",
+    "American Samoa","Northern Mariana Islands",
+    "United States Virgin Islands"
+  ))
+
+
+price_2023 <- pr_tbl
+
+
+head(ev_tbl)
+head(price_2023)
+head(us_states)
 ```
 
 ## **Part 3: Joining / Pivoting Datasets for Analysis**
 
 ```{r}
 
+us_joined <- us_states |>
+  left_join(ev_tbl,    by = c("name"   = "state")) |>
+  left_join(price_2023, by = c("postal" = "postal"))
+
+
+scatter_df <- us_joined |>
+  st_drop_geometry() |>
+  filter(!is.na(ev_count), !is.na(price_2023))
+
+head(scatter_df)
 ```
 
 ## **Part 4: Mapping Visualization**
 
 ```{r}
 
+ggplot(us_joined) +
+  geom_sf(aes(fill = ev_count), color = "white", linewidth = 0.2) +
+  scale_fill_viridis_c(na.value = "grey90", name = "EV registrations (2023)") +
+  labs(title = "EV Registrations by State (2023)") +
+  coord_sf(xlim = c(-125, -66), ylim = c(24, 50), expand = FALSE) +
+  theme_minimal()
+```
+
+```{r}
+
+ggplot(us_joined) +
+  geom_sf(aes(fill = price_2023), color = "white", linewidth = 0.2) +
+  scale_fill_viridis_c(na.value = "grey90", name = "Energy price 2023 ($/MMBtu)") +
+  labs(title = "Total Energy Average Price by State (2023)") +
+  coord_sf(xlim = c(-125, -66), ylim = c(24, 50), expand = FALSE) +
+  theme_minimal()
+```
+
+```{r}
+
+ggplot(scatter_df, aes(x = price_2023, y = ev_count)) +
+  geom_point() +
+  geom_smooth(method = "lm", se = TRUE)
 ```

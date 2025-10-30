@@ -5,9 +5,8 @@ format: stat133handout-typst
 ---
 
 ### **Main Research Question**
+Do states with more EV registrations also have higher total energy prices in 2023?
 
-*Electric vehicles reduce direct emissions, but does the electricity used to charge them actually come from clean sources?\
-*
 
 ### **Datasets Provided**
 
@@ -43,6 +42,8 @@ Brainstorm some questions about the datasets that you would like to answer throu
 
 -   You should be able to explore each question using the datasets provided. Try to come up with some creative questions that you are interested in learning the answers to!
 
+Do states with more EV registrations also have higher total energy prices in 2023?
+
 ### **Part 2: Data Preparation & Cleaning**
 
 Load and clean your datasets to prepare for analysis.
@@ -52,6 +53,28 @@ Load and clean your datasets to prepare for analysis.
     -   Standardize column names
 
     -   Ensure state names are consistent across files
+```{r}
+# Read and clean renew-use-xxxx.csv files
+renew_2021 <- read.csv("data/renew-use-2021.csv") |>
+    rename(state = State, source = Energy_Source, usage = Renewable_Use_2021) |>
+    mutate(year = 2021, usage = as.numeric(str_extract(usage, "\\d+")))
+ 
+renew_2022 <- read.csv("data/renew-use-2022.csv") |>
+    rename(state = State, source = Energy_Source, usage = Renewable_Use_2022) |>
+    mutate(year = 2022, usage = as.numeric(str_extract(usage, "\\d+")))
+ 
+renew_2023 <- read.csv("data/renew-use-2023.csv") |>
+    rename(state = State, source = Energy_Source, usage = Renewable_Use_2023) |>
+    mutate(year = 2023, usage = as.numeric(str_extract(usage, "\\d+")))
+ 
+renew_total <- bind_rows(renew_2021, renew_2022, renew_2023)
+ 
+
+```
+
+ev-registrations-by-state-2023.csv — State-level EV registrations (messy text).
+av-energy-price-2021-2023.csv — Total energy average price by state (keep 2023).
+State boundaries from the rnaturalearth shown in lab session.
 
 ### **Part 3: Joining / Pivoting Datasets for Analysis**
 
@@ -70,6 +93,11 @@ Create a map to support your analysis and visualize your findings:
 -   Can include time based data, showing changes from 2021-2023
 
 -   Ensure maps include titles, legends, and clear labeling
+
+1, EV registrations by state (2023), choropleth with `geom_sf()`.
+2, Total energy average price (2023), choropleth with `geom_sf()`.
+scatterplot: `price_2023` (x) vs `ev_count` (y) with `geom_smooth(method = "lm")`.
+
 
 ### **Part 5: Final Deliverable**
 
